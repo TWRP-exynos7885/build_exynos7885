@@ -1,0 +1,47 @@
+
+name: Build recovery
+
+on:
+  workflow_dispatch:
+
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Check
+      run: |
+        sudo apt-get install curl git -y || sudo apt-get install curl git -y || true
+        git config --global user.name Gabriel2392
+        git config --global user.email gabriel824m@gmail.com
+        latest=$(curl -s https://api.github.com/repos/TeamWin/android_bootable_recovery/commits/android-11 | grep '"sha":' | cut -d '"' -f 4 | head -n1)
+        touch latest_commit
+        current=$(cat latest_commit)
+        if [ "$latest" == "$current" ]; then
+          echo "No need to build new recoveries"
+          exit 1
+        else
+          echo "$latest" > latest_commit
+          git add latest_commit
+          git commit -m "Update latest commit hash"
+          git push
+        fi
+    - name: Cleanup
+      uses: rokibhasansagar/slimhub_actions@main
+    - name: Build
+      run: |
+        echo "Updating package list..."
+        sudo apt-get update -y &>/dev/null || sudo apt-get update -y &>/dev/null || true
+        echo "Upgrading packages..."
+        sudo apt-get upgrade -y &>/dev/null || sudo apt-get upgrade -y &>/dev/null || true
+        echo "Installing some packages we want..."
+        sudo apt-get install build-essential ccache bc clang gcc wget git -y &>/dev/null || sudo apt-get install build-essential ccache bc clang gcc wget git -y &>/dev/null || true
+        git clone https://github.com/akhilnarang/scripts --depth=1 &>/dev/null
+        bash scripts/setup/android_build_env.sh &>/dev/null
+        rm -rf scripts
+        echo "Installing python..."
+        sudo apt-get install python3 python2 -y &>/dev/null ||  sudo apt-get install python3 -y &>/dev/null || sudo apt-get install python -y &>/dev/null || true
+        chmod 0755 recovery.sh
+        ./recovery.sh "${{ secrets.BOT_TOKEN }}" "${{ secrets.CHAT_ID }}"
