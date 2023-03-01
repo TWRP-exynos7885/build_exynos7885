@@ -8,6 +8,7 @@ if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then
     exit 1
 fi
 
+vbmeta=$(pwd)/vbmeta/vbmeta.img
 dev_list="a10 a20 a20e a30 a30s a40"
 cd ~
 mkdir recovery; cd recovery
@@ -44,6 +45,8 @@ n='
 
 tg_sendText "(Automated message)${n}Starting Builds for exynos7885;${n}Today is $(date '+%Y-%m-%d %H:%M:%S').${n}${n}Changelog: https://github.com/TeamWin/android_bootable_recovery/commits/android-11"
 today=$(date +%y%m%d)
+version="$(cat bootable/recovery/variables.h | grep TW_MAIN_VERSION_STR | head -n1 | sed 's:.*STR::' | tr -d '"' | tr -d ' ')"
+cp -f $vbmeta vbmeta.img
 
 for dev in $dev_list; do
     rm -rf out
@@ -57,10 +60,13 @@ for dev in $dev_list; do
     fi
     img="$(pwd)/out/target/product/${dev}/recovery.img"
     img_md5=($(md5sum $img))
-    version="$(cat bootable/recovery/variables.h | grep TW_MAIN_VERSION_STR | head -n1 | sed 's:.*STR::' | tr -d '"' | tr -d ' ')"
     new_img="twrp-${version}-${dev}-${today}.img"
+    new_tar="twrp-${version}-${dev}-${today}.tar"
     cp -f $img $new_img
-    free=$(df -m / | awk 'NR==2{print $4}')
-    echo "We have $free megabytes free"
-    tg_sendFile $new_img "Device: Galaxy ${dev^}${n}MD5: ${img_md5}"
+    cp -f $img recovery.img
+    tar -cf $new_tar vbmeta.img recovery.img
+    rm -f recovery.img
+    tar_md5=($(md5sum $new_tar))
+    tg_sendFile $new_tar "Device: Galaxy ${dev^}${n}Type: Odin Flashable tar${n}${n}MD5: ${tar_md5}"
+    tg_sendFile $new_img "Device: Galaxy ${dev^}${n}Type: Flashable Image${n}${n}MD5: ${img_md5}"
 done
